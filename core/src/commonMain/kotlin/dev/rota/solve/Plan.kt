@@ -88,6 +88,8 @@ data class SolveStats(
     val nodes: Int,
     val arcs: Int,
     val augmentations: Int,
+    /** Objective-neutral swaps made afterwards to cut short rests and balance shift types. */
+    val swaps: Int,
     val millis: Double,
     /** True when the residual graph was checked for negative cycles (an optimality proof). */
     val certified: Boolean,

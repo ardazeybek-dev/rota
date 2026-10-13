@@ -109,10 +109,11 @@ object Solver {
 
         val assigned = Array(slots.size) { mutableListOf<Int>() }
         for ((arc, s, pi) in assignArc) if (g.flow(arc) > 0) assigned[s] += pi
+        val gapsFound = explainGaps(rota, slots, assigned, g, uncoveredArc, dayNode, weekNode, personNode, weekOf, source, sink)
+        val swaps = Polish.run(rota, slots, assigned)
         val millis = clock.elapsedNow().inWholeMicroseconds / 1000.0
 
-        val gaps = explainGaps(rota, slots, assigned, g, uncoveredArc, dayNode, weekNode, personNode, weekOf, source, sink)
-        return buildPlan(rota, slots, assigned, gaps, SolveStats(slots.size, units, nextNode, g.arcCount, result.augmentations, millis, certified))
+        return buildPlan(rota, slots, assigned, gapsFound, SolveStats(slots.size, units, nextNode, g.arcCount, result.augmentations, swaps, millis, certified))
     }
 
     internal fun assignCost(rota: Rota, p: Person, slot: SlotInstance): Long {

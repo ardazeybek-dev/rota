@@ -17,15 +17,16 @@ object Examples {
         shift night     weekdays 18:00-09:00  requires pager
         shift weekend   weekends 09:00-21:00  requires pager
 
-        person Ana      skills pager                       history 14
-        person Bilal    skills pager  avoid fri            history 12
-        person Chen     skills pager  off 2026-11-09..2026-11-13
-        person Dara     share 0.5     avoid night          history 6   # part-time, no pager
-        person Emre     skills pager  prefer weekend       history 15
+        # history = shifts worked last month, so the fairness carries over
+        person Ana      skills pager                       history 9
+        person Bilal    skills pager  avoid fri            history 8
+        person Chen     skills pager  off 2026-11-09..2026-11-13  history 6
+        person Dara     share 0.5                          history 4   # part-time, no pager
+        person Emre     skills pager  prefer weekend       history 10
 
         max-per-day 1
         max-per-week 3
-        min-rest 11h
+        min-rest 8h
         """.trimIndent(),
     )
 

@@ -128,8 +128,8 @@ object RotaParser {
                     name = args.joinToString(" ") { it.text }
                 }
                 "period" -> {
-                    period = parsePeriod(head, args)
                     periodToken = head
+                    period = parsePeriod(head, args)
                 }
                 "timezone", "tz" -> {
                     val tz = args.singleOrNull() ?: throw LineError(head, "expected one IANA zone, e.g. 'timezone Europe/Berlin'")
@@ -306,9 +306,11 @@ object RotaParser {
 
         fun finish(): ParseResult {
             val anchor = Token("", 1, 1)
-            if (period == null) error(anchor, "missing 'period' (e.g. 'period 2026-11-02 .. 2026-11-29')")
-            if (shifts.isEmpty()) error(anchor, "no shifts defined (e.g. 'shift day weekdays 09:00-17:00')")
-            if (people.isEmpty()) error(anchor, "no people listed (e.g. 'person Ana')")
+            // "Nothing defined" only helps when the file is otherwise clean; after a typo it is noise.
+            val clean = diagnostics.none { it.severity == Severity.ERROR }
+            if (period == null && (clean || periodToken == null)) error(anchor, "missing 'period' (e.g. 'period 2026-11-02 .. 2026-11-29')")
+            if (shifts.isEmpty() && clean) error(anchor, "no shifts defined (e.g. 'shift day weekdays 09:00-17:00')")
+            if (people.isEmpty() && clean) error(anchor, "no people listed (e.g. 'person Ana')")
 
             val shiftNames = shifts.map { it.first.name }.toSet()
             for (ref in shiftRefs) {

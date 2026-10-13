@@ -54,12 +54,11 @@ class ParserTest {
             )
         }
         val errors = e.diagnostics.filter { it.severity == Severity.ERROR }
-        // Line 1: the only shift failed to parse, so the file has no shifts at all.
-        assertEquals(listOf(1, 2, 3, 4), errors.map { it.line })
-        assertTrue(errors[1].message.contains("'25:00' is not a valid time"), errors[1].message)
-        assertTrue(errors[2].message.contains("did you mean 'person'"), errors[2].message)
-        assertEquals(1, errors[2].column)
-        assertTrue(errors[3].message.contains("neither a weekday nor a shift"))
+        assertEquals(listOf(2, 3, 4), errors.map { it.line })
+        assertTrue(errors[0].message.contains("'25:00' is not a valid time"), errors[0].message)
+        assertTrue(errors[1].message.contains("did you mean 'person'"), errors[1].message)
+        assertEquals(1, errors[1].column)
+        assertTrue(errors[2].message.contains("neither a weekday nor a shift"))
     }
 
     @Test
@@ -85,7 +84,7 @@ class SolverTest {
         }
         for (p in plan.people) assertTrue(p.perWeek.all { it <= 3 }, "${p.name} over max-per-week: ${p.perWeek}")
         assertTrue(plan.slots.none { it.date == "2026-11-26" }, "skipped day still has shifts")
-        // History carries over: Chen starts the month 15 shifts behind Emre, so Chen takes more.
+        // History carries over: Chen starts the month 4 shifts behind Emre, so Chen takes more.
         val load = plan.people.associate { it.name to it.assigned }
         assertTrue(load.getValue("Chen") > load.getValue("Emre"), load.toString())
     }
