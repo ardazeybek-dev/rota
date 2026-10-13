@@ -126,7 +126,7 @@ class Bench : CliktCommand() {
         val times = (1..runs).map { RotaEngine.plan(source) }
         val plan = times.last()
         val ms = times.map { it.stats.millis }.sorted()
-        echo("${plan.stats.units} shift-person units · ${plan.stats.nodes} nodes · ${plan.stats.arcs} arcs · ${plan.stats.augmentations} augmenting paths")
+        echo("${plan.stats.units} shift-person units · ${plan.stats.nodes} nodes · ${plan.stats.arcs} arcs · ${plan.stats.augmentations} augmenting paths in ${plan.stats.phases} shortest-path phases")
         echo("median %.1f ms (min %.1f, max %.1f) over $runs runs".format(ms[ms.size / 2], ms.first(), ms.last()))
         echo("unfilled: ${plan.gaps.sumOf { it.missing }} · objective ${plan.objective.total}")
     }

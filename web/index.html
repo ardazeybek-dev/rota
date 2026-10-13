@@ -1,1 +1,97 @@
-<!doctype html><title>rota</title>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>rota — fair rotas, solved exactly</title>
+  <meta name="description" content="Plan on-call, shift and chore rotas that are provably fair. Write the rules in a few lines; rota solves them exactly as a min-cost flow, right in your browser.">
+  <meta name="theme-color" content="#0f1115">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f5a524'/%3E%3Cpath d='M9 22a8 8 0 1 1 6 3' stroke='%230f1115' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M15 21l1 4-4 1' stroke='%230f1115' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./" aria-label="rota home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" class="brand-bg"/><path d="M9 22a8 8 0 1 1 6 3" class="brand-fg"/><path d="M15 21l1 4-4 1" class="brand-fg"/></svg>
+      <span>rota</span>
+    </a>
+    <p class="tagline">Fair shift, on-call &amp; chore rotas — <em>solved exactly</em>, in your browser.</p>
+    <nav class="actions">
+      <label class="select">
+        <span class="sr-only">Example</span>
+        <select id="example" aria-label="Load an example"></select>
+      </label>
+      <button id="share" class="btn" title="Copy a link that contains this rota">Share</button>
+      <div class="menu">
+        <button id="download" class="btn primary" aria-haspopup="true" aria-expanded="false">Export ▾</button>
+        <div id="download-menu" class="menu-list" role="menu" hidden></div>
+      </div>
+      <button id="theme" class="btn icon" title="Toggle light/dark" aria-label="Toggle colour theme">◐</button>
+      <a class="btn icon" href="https://github.com/ardazeybek-dev/rota" title="Source on GitHub" aria-label="GitHub">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <section class="pane editor-pane" aria-label="Rota source">
+      <div class="pane-head">
+        <h2>team.rota</h2>
+        <span id="cursor" class="muted mono"></span>
+      </div>
+      <div class="editor" id="editor">
+        <div class="gutter" id="gutter" aria-hidden="true"></div>
+        <div class="code">
+          <pre class="hl" id="hl" aria-hidden="true"></pre>
+          <textarea id="source" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Rota file"></textarea>
+        </div>
+      </div>
+      <ul class="diagnostics" id="diagnostics" aria-live="polite"></ul>
+      <details class="cheatsheet">
+        <summary>Syntax cheatsheet</summary>
+        <pre class="mono">rota "Name"
+period 2026-11-02 .. 2026-11-29   <span class="muted"># or: period 2026-11 · period 2026-11-02 for 4 weeks</span>
+timezone Europe/Berlin
+skip 2026-11-26                   <span class="muted"># holidays: no shifts</span>
+
+shift &lt;name&gt; &lt;days&gt; 09:00-17:00 [needs 2] [requires skill]
+      <span class="muted">days: daily · weekdays · weekends · mon-fri · sat,sun</span>
+
+person &lt;name&gt; [share 0.5] [skills a,b] [off 2026-11-09..2026-11-13]
+               [avoid fri,night] [prefer weekend] [history 12] [max 8]
+
+max-per-day 1 · max-per-week 3 · min-rest 11h
+weight fairness|avoid|prefer|spread &lt;n&gt;</pre>
+      </details>
+    </section>
+
+    <section class="pane result-pane" aria-label="Solved rota">
+      <div class="status" id="status">
+        <span class="badge" id="badge">Loading solver…</span>
+        <span class="metrics" id="metrics"></span>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="calendar">Calendar</button>
+        <button role="tab" aria-selected="false" data-tab="people">Fairness</button>
+        <button role="tab" aria-selected="false" data-tab="why">Why <span class="count" id="why-count"></span></button>
+        <button role="tab" aria-selected="false" data-tab="model">How it's solved</button>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="tab-panel" id="tab-calendar" role="tabpanel"></div>
+      <div class="tab-panel" id="tab-people" role="tabpanel" hidden></div>
+      <div class="tab-panel" id="tab-why" role="tabpanel" hidden></div>
+      <div class="tab-panel" id="tab-model" role="tabpanel" hidden></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>rota is open source (MIT) · the solver is Kotlin compiled to JavaScript and runs locally — nothing you type leaves this page.</span>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

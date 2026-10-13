@@ -27,6 +27,7 @@ data class SlotInstance(val index: Int, val date: LocalDate, val shift: ShiftDef
 object Solver {
     const val UNCOVERED = 10_000_000_000_000L
     const val DEFAULT_MAX_UNITS = 25_000
+    var PROFILE = false
 
     fun slots(rota: Rota): List<SlotInstance> {
         val monday = rota.start.minus(rota.start.dayOfWeek.ordinal, DateTimeUnit.DAY)
@@ -103,17 +104,21 @@ object Solver {
             for (k in 1..cap) g.addArc(personNode[pi], sink, 1, fairnessMarginal(rota, p, p.history + k))
         }
 
+        if (PROFILE) println("build ${clock.elapsedNow()}")
         val result = g.solve(source, sink)
+        if (PROFILE) println("flow ${clock.elapsedNow()}")
         check(result.flow == units.toLong()) { "every unit must be routed (uncovered arcs guarantee it)" }
         val certified = certify && !g.hasNegativeResidualCycle().also { check(!it) { "residual graph has a negative cycle" } }
 
         val assigned = Array(slots.size) { mutableListOf<Int>() }
         for ((arc, s, pi) in assignArc) if (g.flow(arc) > 0) assigned[s] += pi
         val gapsFound = explainGaps(rota, slots, assigned, g, uncoveredArc, dayNode, weekNode, personNode, weekOf, source, sink)
+        if (PROFILE) println("gaps ${clock.elapsedNow()}")
         val swaps = Polish.run(rota, slots, assigned)
+        if (PROFILE) println("polish ${clock.elapsedNow()}")
         val millis = clock.elapsedNow().inWholeMicroseconds / 1000.0
 
-        return buildPlan(rota, slots, assigned, gapsFound, SolveStats(slots.size, units, nextNode, g.arcCount, result.augmentations, swaps, millis, certified))
+        return buildPlan(rota, slots, assigned, gapsFound, SolveStats(slots.size, units, nextNode, dayNode.size, weekNode.size, g.arcCount, result.augmentations, result.dijkstras, swaps, millis, certified))
     }
 
     internal fun assignCost(rota: Rota, p: Person, slot: SlotInstance): Long {
@@ -202,19 +207,23 @@ object Solver {
                 append(if (onIt > 0) "only $onIt can be placed" else "nobody can be placed")
                 append(": every qualified person is at a hard limit")
                 if (competing > 1) append(", even after reshuffling the $competing shifts they could swap with")
+                val others = unavailable(rota, slot)
+                if (others.isNotEmpty()) append(" (").append(others.joinToString("; ")).append(")")
             }
             gaps += Gap(slot.date.toString(), slot.shift.name, missing, reason, blockers, competing)
         }
         return gaps
     }
 
-    private fun nobodyReason(rota: Rota, slot: SlotInstance): String {
+    private fun nobodyReason(rota: Rota, slot: SlotInstance): String = "nobody can work it: " + unavailable(rota, slot).joinToString("; ")
+
+    private fun unavailable(rota: Rota, slot: SlotInstance): List<String> {
         val off = rota.people.filter { it.isOff(slot.date) }.map { it.name }
         val unskilled = rota.people.filter { !it.isOff(slot.date) && !it.skills.containsAll(slot.shift.requires) }.map { it.name }
         val parts = mutableListOf<String>()
         if (off.isNotEmpty()) parts += "${off.joinToString()} ${if (off.size == 1) "is" else "are"} off"
         if (unskilled.isNotEmpty()) parts += "${unskilled.joinToString()} lack${if (unskilled.size == 1) "s" else ""} '${slot.shift.requires.joinToString()}'"
-        return "nobody can work it: " + parts.joinToString("; ")
+        return parts
     }
 
     private fun buildPlan(rota: Rota, slots: List<SlotInstance>, assigned: Array<MutableList<Int>>, gaps: List<Gap>, stats: SolveStats): Plan {

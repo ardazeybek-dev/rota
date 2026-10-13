@@ -46,7 +46,62 @@ class MinCostFlow(val nodeCount: Int) {
     fun arcCost(arc: Int): Long = cost[arc]
     fun outArcs(node: Int): Sequence<Int> = generateSequence(head[node].takeIf { it >= 0 }) { a -> next[a].takeIf { it >= 0 } }
 
-    data class Result(val flow: Long, val cost: Long, val augmentations: Int)
+    data class Result(val flow: Long, val cost: Long, val augmentations: Int, val dijkstras: Int)
+
+    private val bfsQueue = IntArray(nodeCount)
+
+    private fun admissible(a: Int, u: Int, potential: LongArray) = cap[a] > 0 && cost[a] + potential[u] - potential[to[a]] == 0L
+
+    /** BFS levels over admissible arcs; false when the sink is unreachable through them. */
+    private fun levelGraph(source: Int, sink: Int, potential: LongArray, level: IntArray): Boolean {
+        level.fill(-1)
+        level[source] = 0
+        val queue = bfsQueue
+        var qh = 0; var qt = 0
+        queue[qt++] = source
+        while (qh < qt) {
+            val u = queue[qh++]
+            var a = head[u]
+            while (a >= 0) {
+                val v = to[a]
+                if (level[v] < 0 && admissible(a, u, potential)) { level[v] = level[u] + 1; queue[qt++] = v }
+                a = next[a]
+            }
+        }
+        return level[sink] >= 0
+    }
+
+    /** One augmenting path along increasing levels (Dinic), with per-node arc cursors. */
+    private fun augment(source: Int, sink: Int, want: Long, potential: LongArray, level: IntArray, iter: IntArray): Long {
+        val pathArcs = IntArray(level[sink])
+        var depth = 0
+        var u = source
+        while (true) {
+            if (u == sink) {
+                var push = want
+                for (i in 0 until depth) push = minOf(push, cap[pathArcs[i]])
+                for (i in 0 until depth) { val a = pathArcs[i]; cap[a] -= push; cap[a xor 1] += push }
+                return push
+            }
+            if (iter[u] == -2) iter[u] = head[u]
+            // Nodes at the sink's level (other than the sink) can only lead to longer paths.
+            var a = if (depth < pathArcs.size) iter[u] else -1
+            while (a >= 0 && !(level[to[a]] == level[u] + 1 && admissible(a, u, potential))) a = next[a]
+            if (depth < pathArcs.size) iter[u] = a
+            if (a < 0) {
+                // Dead end: retreat and skip the arc that led here.
+                if (depth == 0) return 0
+                level[u] = -1
+                depth--
+                val back = pathArcs[depth]
+                u = to[back xor 1]
+                iter[u] = next[iter[u]]
+                continue
+            }
+            pathArcs[depth++] = a
+            u = to[a]
+        }
+    }
 
     fun solve(source: Int, sink: Int, limit: Long = Long.MAX_VALUE): Result {
         val potential = LongArray(nodeCount)
@@ -56,6 +111,9 @@ class MinCostFlow(val nodeCount: Int) {
         var flow = 0L
         var total = 0L
         var rounds = 0
+        var dijkstras = 0
+        val level = IntArray(nodeCount)
+        val iter = IntArray(nodeCount)
         while (flow < limit) {
             dist.fill(INF); via.fill(-1)
             dist[source] = 0
@@ -64,6 +122,8 @@ class MinCostFlow(val nodeCount: Int) {
                 val u = heap.pop()
                 val du = dist[u]
                 if (heap.lastKey > du) continue
+                // Nothing popped after the sink can shorten the path to it.
+                if (u == sink) { heap.clear(); break }
                 var a = head[u]
                 while (a >= 0) {
                     if (cap[a] > 0) {
@@ -78,22 +138,25 @@ class MinCostFlow(val nodeCount: Int) {
                 }
             }
             if (dist[sink] == INF) break
-            for (v in 0 until nodeCount) if (dist[v] < INF) potential[v] += dist[v]
+            // Capping at dist[sink] keeps reduced costs non-negative for nodes left unsettled.
+            val ds = dist[sink]
+            for (v in 0 until nodeCount) potential[v] += minOf(dist[v], ds)
 
-            var push = limit - flow
-            var v = sink
-            while (v != source) { val a = via[v]; push = minOf(push, cap[a]); v = to[a xor 1] }
-            v = sink
-            while (v != source) {
-                val a = via[v]
-                cap[a] -= push; cap[a xor 1] += push
-                total += push * cost[a]
-                v = to[a xor 1]
+            // Primal-dual step: every s-t path made only of zero-reduced-cost arcs is a shortest
+            // path, so push a blocking flow through all of them before the next Dijkstra.
+            while (flow < limit && levelGraph(source, sink, potential, level)) {
+                iter.fill(-2)
+                while (flow < limit) {
+                    val pushed = augment(source, sink, limit - flow, potential, level, iter)
+                    if (pushed == 0L) break
+                    flow += pushed
+                    total += pushed * (potential[sink] - potential[source])
+                    rounds++
+                }
             }
-            flow += push
-            rounds++
+            dijkstras++
         }
-        return Result(flow, total, rounds)
+        return Result(flow, total, rounds, dijkstras)
     }
 
     /**
@@ -150,6 +213,8 @@ internal class IndexedHeap(capacity: Int) {
         private set
 
     fun isNotEmpty() = n > 0
+
+    fun clear() { n = 0 }
 
     private fun less(i: Int, j: Int) = keys[i] < keys[j] || (keys[i] == keys[j] && nodes[i] < nodes[j])
 

@@ -86,8 +86,12 @@ data class SolveStats(
     val slots: Int,
     val units: Int,
     val nodes: Int,
+    val personDays: Int,
+    val personWeeks: Int,
     val arcs: Int,
     val augmentations: Int,
+    /** Shortest-path (Dijkstra) phases; each pushes a whole blocking flow. */
+    val phases: Int,
     /** Objective-neutral swaps made afterwards to cut short rests and balance shift types. */
     val swaps: Int,
     val millis: Double,
