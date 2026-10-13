@@ -1,0 +1,25 @@
+# Build
+build/
+.gradle/
+.kotlin/
+out/
+*.class
+node_modules/
+kotlin-js-store/yarn.lock.bak
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Generated rotas
+*.ics
+!docs/**/*.ics
