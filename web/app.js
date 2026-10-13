@@ -172,7 +172,7 @@ function renderStatus() {
   if (p) {
     const s = p.stats;
     els.metrics.innerHTML = `<span><b>${p.people.length}</b> people</span><span><b>${s.units}</b> shift-person units</span>
-      <span><b>${s.millis.toFixed(1)}</b> ms</span><span><b>${s.augmentations}</b> augmenting paths</span>`;
+      <span><b>${s.millis.toFixed(1)}</b> ms</span><span><b>${s.phases}</b> shortest-path phases</span>`;
   }
 }
 
@@ -307,7 +307,7 @@ function renderModel() {
     { x: 790, label: 'sink', sub: '', end: true },
   ];
   const caps = ['needs', '1 each', 'max/day', 'max/week · spread', 'fairness k²'];
-  const w = 860, h = 210, y = 80, nh = 54;
+  const w = 860, h = 230, y = 80, nh = 54;
   let svg = `<svg class="flow-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="The rota as a flow network">
     <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--faint)"/></marker></defs>`;
   const widths = cols.map((c) => (c.end ? 60 : 130));
@@ -316,7 +316,8 @@ function renderModel() {
       const x1 = c.x + widths[i], x2 = cols[i + 1].x;
       svg += `<path class="edge" d="M${x1},${y + nh / 2} L${x2 - 2},${y + nh / 2}"/>`;
       svg += `<path class="pulse" d="M${x1},${y + nh / 2} L${x2 - 2},${y + nh / 2}" style="animation-delay:${i * 0.35}s"/>`;
-      svg += `<text class="cap" x="${(x1 + x2) / 2}" y="${y + nh / 2 - 8}" text-anchor="middle">${caps[i]}</text>`;
+      svg += `<line x1="${(x1 + x2) / 2}" y1="${y + nh / 2 + 4}" x2="${(x1 + x2) / 2}" y2="${y + nh + 12}" stroke="var(--line-2)" stroke-dasharray="2 3"/>`;
+      svg += `<text class="cap" x="${(x1 + x2) / 2}" y="${y + nh + 26}" text-anchor="middle">${caps[i]}</text>`;
     }
     svg += `<rect class="node${c.end ? ' end' : ''}" x="${c.x}" y="${y}" width="${widths[i]}" height="${nh}" rx="10"/>`;
     svg += `<text x="${c.x + widths[i] / 2}" y="${y + (c.sub ? 24 : 32)}" text-anchor="middle" font-weight="600">${c.label}</text>`;
@@ -324,11 +325,11 @@ function renderModel() {
   });
   svg += `<path class="edge uncovered" d="M215,${y} C215,20 820,20 820,${y - 2}"/>
     <text class="cap" x="520" y="30" text-anchor="middle" style="fill:var(--bad)">unfilled · cost 10¹³ (only if nothing else fits)</text>
-    <text class="sub" x="${w / 2}" y="${h - 16}" text-anchor="middle">${s.nodes} nodes · ${s.arcs} arcs · ${s.augmentations} shortest augmenting paths · ${s.swaps} balancing swaps · ${s.millis.toFixed(1)} ms</text></svg>`;
+    <text class="sub" x="${w / 2}" y="${h - 16}" text-anchor="middle">${s.nodes} nodes · ${s.arcs} arcs · ${s.augmentations} augmenting paths in ${s.phases} Dijkstra phases · ${s.swaps} balancing swaps · ${s.millis.toFixed(1)} ms</text></svg>`;
   $('#tab-model').innerHTML = svg + `<div class="explain">
     <div class="card"><h4>Rules become capacities</h4><p>Day ⊂ week ⊂ period is a nested (laminar) family, so <code>max-per-day</code>, <code>max-per-week</code> and <code>max</code> are capacities on a chain of nodes — the whole rota stays a network flow.</p></div>
     <div class="card"><h4>Fairness is convex</h4><p>Your <i>k</i>-th shift costs (2k−1)/share: the sum is k²/share, so loading one person is always dearer than spreading. Parallel arcs with rising costs model it exactly.</p></div>
-    <div class="card"><h4>Exact, not heuristic</h4><p>Successive shortest paths with Johnson potentials return a min-cost flow. Tests compare it against brute force on thousands of random rotas, on the JVM and in JS.</p></div>
+    <div class="card"><h4>Exact, not heuristic</h4><p>Primal-dual shortest paths (Dijkstra with Johnson potentials, then a blocking flow over zero-cost arcs) return a min-cost flow. Tests compare it against brute force on thousands of random rotas, on the JVM and in JS.</p></div>
     <div class="card"><h4>Proofs for “impossible”</h4><p>When a shift stays open, the residual graph shows every person who could take it is at a hard limit — even after reshuffling. That witness is the <i>Why</i> tab.</p></div>
   </div>`;
 }
